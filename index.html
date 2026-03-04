@@ -16,23 +16,25 @@
     min-height: 100vh;
     padding: 20px;
     overflow-x: hidden;
+    text-shadow: 0 0 8px rgba(255, 176, 0, 0.55);
   }
 
   #terminal { max-width: 960px; margin: 0 auto; }
 
   .line { line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
-  .prompt { color: #ffb000; }
-  .dim    { color: #7a4f00; }
-  .bright { color: #ffd966; }
-  .warn   { color: #ff8c00; }
-  .info   { color: #ffcc66; }
-  .separator { color: #7a4f00; margin: 8px 0; }
+  .prompt { color: #ffb000; text-shadow: 0 0 10px rgba(255, 176, 0, 0.8); }
+  .dim    { color: #7a4f00; text-shadow: none; }
+  .bright { color: #ffd966; text-shadow: 0 0 12px rgba(255, 220, 80, 0.9); }
+  .warn   { color: #ff8c00; text-shadow: 0 0 12px rgba(255, 140, 0, 0.85); }
+  .info   { color: #ffcc66; text-shadow: 0 0 10px rgba(255, 200, 80, 0.75); }
+  .separator { color: #7a4f00; margin: 8px 0; text-shadow: none; }
 
   #wordmark {
     line-height: 1.25;
     white-space: pre;
     color: #7a4f00;
     font-size: 13px;
+    text-shadow: none;
   }
 
   #press-enter {
@@ -134,8 +136,7 @@ const lines = [
   { text: '──────────────────────────────────────────────────────────────────────', cls: 'dim', delay: 0 },
   { text: '',                                                                    delay:  70 },
   { text: 'root@publix:~# present PublicArtSharing.pdf',   cls: 'prompt',        delay: 110 },
-  { text: '[  warn] browser security policy blocks direct file:// access',  cls: 'warn', delay: 80 },
-  { text: '[  info] manual attach required',               cls: 'dim',           delay:  60 },
+  { text: 'Fetching presentation...',                      cls: 'dim',           delay:  60 },
 ];
 
 let triggered = false;
@@ -174,6 +175,10 @@ async function initSlides() {
     const total  = pdf.numPages;
     const width  = slides.clientWidth;
 
+    // Lock scroll and snap to the slide area
+    document.documentElement.style.overflow = 'hidden';
+    slides.scrollIntoView({ behavior: 'smooth' });
+
     for (let n = 1; n <= total; n++) {
       const page  = await pdf.getPage(n);
       let   vp    = page.getViewport({ scale: 1 });
@@ -185,15 +190,15 @@ async function initSlides() {
       slides.appendChild(canvas);
 
       await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-      window.scrollTo(0, document.body.scrollHeight);
     }
 
+    // Unlock scroll once all slides are ready
+    document.documentElement.style.overflow = '';
     appendLine('[  done] ' + total + ' slides rendered.', 'dim');
   } catch (err) {
+    document.documentElement.style.overflow = '';
     appendLine('[  error] ' + err.message, 'warn');
-    appendLine('[  info]  run launch.bat to start the local server', 'dim');
   }
-  window.scrollTo(0, document.body.scrollHeight);
 }
 </script>
 </body>
