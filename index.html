@@ -108,8 +108,9 @@ if (window.pdfjsLib) {
     'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 }
 
-const output = document.getElementById('output');
-const slides = document.getElementById('slides');
+const output       = document.getElementById('output');
+const slides       = document.getElementById('slides');
+const slideCanvases = [];
 
 const lines = [
   { text: '',                                                                    delay:   0 },
@@ -173,8 +174,28 @@ function start() {
   runLines(0);
 }
 
+function currentSlideIdx() {
+  let best = 0, minDist = Infinity;
+  slideCanvases.forEach((c, i) => {
+    const dist = Math.abs(c.getBoundingClientRect().top);
+    if (dist < minDist) { minDist = dist; best = i; }
+  });
+  return best;
+}
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !triggered) start();
+  if (e.key === 'Enter' && !triggered) { start(); return; }
+  if (!slideCanvases.length) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = Math.min(currentSlideIdx() + 1, slideCanvases.length - 1);
+    slideCanvases[next].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prev = Math.max(currentSlideIdx() - 1, 0);
+    slideCanvases[prev].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 });
 document.getElementById('press-enter').addEventListener('click', () => { if (!triggered) start(); });
 
@@ -200,6 +221,7 @@ async function initSlides() {
       canvas.width  = vp.width;
       canvas.height = vp.height;
       slides.appendChild(canvas);
+      slideCanvases.push(canvas);
 
       await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
     }
