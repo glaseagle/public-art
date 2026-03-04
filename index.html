@@ -23,18 +23,18 @@
 
   .line { line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
   .prompt { color: #ffb000; text-shadow: 0 0 10px rgba(255, 176, 0, 0.8); }
-  .dim    { color: #7a4f00; text-shadow: none; }
+  .dim    { color: #7a4f00; text-shadow: 0 0 10px rgba(160, 90, 0, 0.8), 0 0 20px rgba(120, 60, 0, 0.5); }
   .bright { color: #ffd966; text-shadow: 0 0 12px rgba(255, 220, 80, 0.9); }
   .warn   { color: #ff8c00; text-shadow: 0 0 12px rgba(255, 140, 0, 0.85); }
   .info   { color: #ffcc66; text-shadow: 0 0 10px rgba(255, 200, 80, 0.75); }
-  .separator { color: #7a4f00; margin: 8px 0; text-shadow: none; }
+  .separator { color: #7a4f00; margin: 8px 0; text-shadow: 0 0 10px rgba(160, 90, 0, 0.8), 0 0 20px rgba(120, 60, 0, 0.5); }
 
   #wordmark {
     line-height: 1.25;
     white-space: pre;
     color: #7a4f00;
     font-size: 13px;
-    text-shadow: none;
+    text-shadow: 0 0 12px rgba(160, 90, 0, 0.9), 0 0 25px rgba(120, 60, 0, 0.6);
   }
 
   #press-enter {
@@ -141,12 +141,12 @@ const lines = [
 
 let triggered = false;
 
-function appendLine(text, cls) {
+function appendLine(text, cls, scroll = true) {
   const div = document.createElement('div');
   div.className = 'line' + (cls ? ' ' + cls : '');
   div.textContent = text;
   output.appendChild(div);
-  window.scrollTo(0, document.body.scrollHeight);
+  if (scroll) window.scrollTo(0, document.body.scrollHeight);
 }
 
 function runLines(i) {
@@ -192,9 +192,10 @@ async function initSlides() {
       await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
     }
 
-    // Unlock scroll once all slides are ready
+    // Unlock and snap back to first slide
     document.documentElement.style.overflow = '';
-    appendLine('[  done] ' + total + ' slides rendered.', 'dim');
+    slides.firstChild.scrollIntoView({ behavior: 'smooth' });
+    appendLine('[  done] ' + total + ' slides rendered.', 'dim', false);
   } catch (err) {
     document.documentElement.style.overflow = '';
     appendLine('[  error] ' + err.message, 'warn');
