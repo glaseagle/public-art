@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PUBLIC ART // Terminal</title>
+<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0d0a00;
+    color: #ffb000;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    min-height: 100vh;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  #terminal { max-width: 960px; margin: 0 auto; }
+
+  .line { line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+  .prompt { color: #ffb000; }
+  .dim    { color: #7a4f00; }
+  .bright { color: #ffd966; }
+  .warn   { color: #ff8c00; }
+  .info   { color: #ffcc66; }
+  .separator { color: #7a4f00; margin: 8px 0; }
+
+  #wordmark {
+    line-height: 1.25;
+    white-space: pre;
+    color: #7a4f00;
+    font-size: 13px;
+  }
+
+  #press-enter {
+    margin-top: 40px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .blink { animation: blink 1s step-end infinite; }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+
+
+  /* ── Slides ── */
+  #slides { margin-top: 2px; }
+  #slides canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-bottom: 2px;
+  }
+</style>
+</head>
+<body>
+<div id="terminal">
+
+  <div id="wordmark">
+██████╗ ██╗   ██╗██████╗ ██╗     ██╗ ██████╗   █████╗ ██████╗ ████████╗
+██╔══██╗██║   ██║██╔══██╗██║     ██║██╔════╝  ██╔══██╗██╔══██╗╚══██╔══╝
+██████╔╝██║   ██║██████╔╝██║     ██║██║       ███████║██████╔╝   ██║
+██╔═══╝ ██║   ██║██╔══██╗██║     ██║██║       ██╔══██║██╔══██╗   ██║
+██║     ╚██████╔╝██████╔╝███████╗██║╚██████╗  ██║  ██║██║  ██║   ██║
+╚═╝      ╚═════╝ ╚═════╝ ╚══════╝╚═╝ ╚═════╝  ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝</div>
+
+  <div class="line separator">────────────────────────────────────────────────────────────────────────</div>
+  <div class="line bright">PUBLIC ART SHARING INITIATIVE — SYSTEM v2.4.1</div>
+  <div class="line dim">Kernel: Linux 6.1.0-public-arts #1 SMP x86_64</div>
+  <div class="line dim">Memory: 65536MB | Storage: 2TB | Uptime: 0d 0h 0m</div>
+  <div class="line separator">────────────────────────────────────────────────────────────────────────</div>
+
+  <div id="press-enter">
+    <span class="prompt">root@publix:~#</span>
+    <span>Press</span>
+    <span class="bright">[ENTER]</span>
+    <span>to initialize...</span>
+    <span class="blink">█</span>
+  </div>
+
+  <div id="output"></div>
+
+
+  <div id="slides"></div>
+
+</div>
+
+<script>
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
+
+const output = document.getElementById('output');
+const slides = document.getElementById('slides');
+
+const lines = [
+  { text: '',                                                                    delay:   0 },
+  { text: 'root@publix:~# ./init_system.sh',              cls: 'prompt',        delay:  60 },
+  { text: '[  0.001] Mounting virtual filesystems...',     cls: 'dim',           delay: 100 },
+  { text: '[  0.042] Checking disk integrity... OK',       cls: 'dim',           delay:  70 },
+  { text: '[  0.189] Loading kernel modules:',             cls: 'dim',           delay:  90 },
+  { text: '         art_sharing.ko         [OK]',          cls: 'bright',        delay:  55 },
+  { text: '         community_net.ko        [OK]',         cls: 'bright',        delay:  55 },
+  { text: '         public_display.ko       [OK]',         cls: 'bright',        delay:  55 },
+  { text: '         geolocation.ko          [OK]',         cls: 'bright',        delay:  55 },
+  { text: '[  0.614] Initializing network stack...',       cls: 'dim',           delay: 100 },
+  { text: '         IPv4: 192.168.1.100 assigned',         cls: 'dim',           delay:  45 },
+  { text: '         IPv6: fe80::1a2b:3c4d assigned',       cls: 'dim',           delay:  45 },
+  { text: '[  0.891] Connecting to public art database...', cls: 'dim',          delay: 130 },
+  { text: '         Resolving art-sharing.network...  CONNECTED', cls: 'bright', delay:  70 },
+  { text: '[  1.204] Fetching community submissions:',     cls: 'dim',           delay: 100 },
+  { text: '         Downloading metadata index...   [##########] 100%', cls: 'info', delay: 180 },
+  { text: '         Syncing artwork catalog...      [##########] 100%', cls: 'info', delay: 220 },
+  { text: '         Loading contributor profiles... [##########] 100%', cls: 'info', delay: 180 },
+  { text: '[  2.891] Running integrity checks:',           cls: 'dim',           delay: 100 },
+  { text: '         SHA256 verification...  PASSED',       cls: 'bright',        delay:  70 },
+  { text: '         License validation...   PASSED',       cls: 'bright',        delay:  55 },
+  { text: '         Community standards...  PASSED',       cls: 'bright',        delay:  55 },
+  { text: '[  3.441] Compiling presentation assets:',      cls: 'dim',           delay: 100 },
+  { text: '         Rasterizing slides...   [##########] 100%', cls: 'info',     delay: 240 },
+  { text: '         Optimizing resources... [##########] 100%', cls: 'info',     delay: 180 },
+  { text: '         Embedding fonts...      [##########] 100%', cls: 'info',     delay: 140 },
+  { text: '[  4.912] Validating public access permissions...', cls: 'dim',       delay: 100 },
+  { text: '         User: guest        ACCESS GRANTED',    cls: 'bright',        delay:  55 },
+  { text: '         Scope: read-only   OK',                cls: 'bright',        delay:  45 },
+  { text: '[  5.231] All systems nominal.',                cls: 'bright',        delay: 130 },
+  { text: '',                                                                    delay:  70 },
+  { text: '──────────────────────────────────────────────────────────────────────', cls: 'dim', delay: 0 },
+  { text: '  INITIALIZATION COMPLETE — PUBLIC ART SHARING READY',               cls: 'warn', delay:  70 },
+  { text: '──────────────────────────────────────────────────────────────────────', cls: 'dim', delay: 0 },
+  { text: '',                                                                    delay:  70 },
+  { text: 'root@publix:~# present PublicArtSharing.pdf',   cls: 'prompt',        delay: 110 },
+  { text: '[  warn] browser security policy blocks direct file:// access',  cls: 'warn', delay: 80 },
+  { text: '[  info] manual attach required',               cls: 'dim',           delay:  60 },
+];
+
+let triggered = false;
+
+function appendLine(text, cls) {
+  const div = document.createElement('div');
+  div.className = 'line' + (cls ? ' ' + cls : '');
+  div.textContent = text;
+  output.appendChild(div);
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function runLines(i) {
+  if (i >= lines.length) { setTimeout(initSlides, 200); return; }
+  const { text, cls, delay } = lines[i];
+  setTimeout(() => { appendLine(text, cls); runLines(i + 1); }, delay);
+}
+
+function start() {
+  triggered = true;
+  document.getElementById('press-enter').style.display = 'none';
+  runLines(0);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !triggered) start();
+});
+document.getElementById('press-enter').addEventListener('click', () => { if (!triggered) start(); });
+
+// ── PDF render ────────────────────────────────────────────
+async function initSlides() {
+  try {
+    const res    = await fetch('PublicArtSharing.pdf');
+    const buffer = await res.arrayBuffer();
+    const pdf    = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const total  = pdf.numPages;
+    const width  = slides.clientWidth;
+
+    for (let n = 1; n <= total; n++) {
+      const page  = await pdf.getPage(n);
+      let   vp    = page.getViewport({ scale: 1 });
+      vp          = page.getViewport({ scale: width / vp.width });
+
+      const canvas  = document.createElement('canvas');
+      canvas.width  = vp.width;
+      canvas.height = vp.height;
+      slides.appendChild(canvas);
+
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    appendLine('[  done] ' + total + ' slides rendered.', 'dim');
+  } catch (err) {
+    appendLine('[  error] ' + err.message, 'warn');
+    appendLine('[  info]  run launch.bat to start the local server', 'dim');
+  }
+  window.scrollTo(0, document.body.scrollHeight);
+}
+</script>
+</body>
+</html>
