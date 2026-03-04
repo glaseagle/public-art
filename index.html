@@ -48,6 +48,15 @@
   @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
 
 
+  /* ── CRT overlay ── */
+  #crt {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+  }
+
   /* ── Slides ── */
   #slides { margin-top: 2px; }
   #slides canvas {
@@ -89,6 +98,7 @@
   <div id="slides"></div>
 
 </div>
+<canvas id="crt"></canvas>
 
 <script>
 if (window.pdfjsLib) {
@@ -201,6 +211,118 @@ async function initSlides() {
     appendLine('[  error] ' + err.message, 'warn');
   }
 }
+</script>
+
+<script>
+// ── WebGL CRT overlay (adapted from gingerbeardman/webgl-crt-shader, MIT) ──
+(function () {
+  const canvas = document.getElementById('crt');
+  const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: false });
+  if (!gl) return;
+
+  const VS = `#version 300 es
+    precision highp float;
+    const vec2 POS[4] = vec2[4](vec2(-1,-1),vec2(1,-1),vec2(-1,1),vec2(1,1));
+    const vec2 UVS[4] = vec2[4](vec2(0,0),vec2(1,0),vec2(0,1),vec2(1,1));
+    out vec2 vUv;
+    void main() { vUv = UVS[gl_VertexID]; gl_Position = vec4(POS[gl_VertexID], 0.0, 1.0); }
+  `;
+
+  // Transparent CRT-glass overlay: scanlines + vignette + flicker
+  // Curvature applied via UV distortion — content outside the curved
+  // screen boundary is filled solid black to simulate a CRT bezel.
+  const FS = `#version 300 es
+    precision mediump float;
+    in vec2 vUv;
+    out vec4 fragColor;
+
+    uniform float uTime;
+    uniform float uScanlines;
+    uniform float uScanCount;
+    uniform float uVignette;
+    uniform float uFlicker;
+    uniform float uCurvature;
+
+    const float PI = 3.14159265;
+
+    vec2 curveUV(vec2 uv) {
+      vec2 c = uv * 2.0 - 1.0;
+      c *= 1.0 + dot(c, c) * uCurvature * 0.25;
+      return c * 0.5 + 0.5;
+    }
+
+    void main() {
+      vec2 curved = curveUV(vUv);
+
+      // Outside the curved screen → solid black bezel
+      if (curved.x < 0.0 || curved.x > 1.0 || curved.y < 0.0 || curved.y > 1.0) {
+        fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+      }
+
+      // Scanlines
+      float scan    = abs(sin(curved.y * uScanCount * PI));
+      float scanDark = (1.0 - scan) * uScanlines;
+
+      // Vignette (Chebyshev distance squared — same trick as source repo)
+      vec2 vc    = curved * 2.0 - 1.0;
+      float vign = dot(vc, vc) * uVignette;
+
+      // Flicker
+      float flicker = sin(uTime * 110.0) * uFlicker;
+
+      float alpha = clamp(scanDark + vign + flicker, 0.0, 0.9);
+      fragColor = vec4(0.0, 0.0, 0.0, alpha);
+    }
+  `;
+
+  function makeShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s); return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, makeShader(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, makeShader(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+
+  const U = name => gl.getUniformLocation(prog, name);
+  const uTime      = U('uTime');
+  const uScanlines = U('uScanlines');
+  const uScanCount = U('uScanCount');
+  const uVignette  = U('uVignette');
+  const uFlicker   = U('uFlicker');
+  const uCurvature = U('uCurvature');
+
+  gl.uniform1f(uScanlines, 0.18);
+  gl.uniform1f(uScanCount, 600.0);
+  gl.uniform1f(uVignette,  0.38);
+  gl.uniform1f(uFlicker,   0.008);
+  gl.uniform1f(uCurvature, 0.12);
+
+  gl.bindVertexArray(gl.createVertexArray());
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.clearColor(0, 0, 0, 0);
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width  = Math.floor(window.innerWidth  * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+  }
+
+  function render(ts) {
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform1f(uTime, ts * 0.001);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+
+  resize();
+  window.addEventListener('resize', resize, { passive: true });
+  requestAnimationFrame(render);
+})();
 </script>
 </body>
 </html>
