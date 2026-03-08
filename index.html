@@ -74,6 +74,68 @@
     z-index: 9999;
   }
 
+  /* ── Debug panel ── */
+  #debug-panel {
+    position: fixed;
+    top: 10px; right: 10px;
+    width: 280px;
+    background: rgba(0, 0, 0, 0.88);
+    border: 1px solid #ffb000;
+    border-radius: 4px;
+    padding: 14px;
+    z-index: 10000;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #ffb000;
+    display: none;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 0 20px rgba(255, 176, 0, 0.2);
+  }
+  #debug-panel.visible { display: block; }
+  #debug-panel h3 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 1px solid #ffb00044;
+    padding-bottom: 6px;
+  }
+  #debug-panel .section-label {
+    color: #fff;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 10px;
+    margin-bottom: 4px;
+  }
+  #debug-panel label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 4px 0 1px;
+    font-size: 11px;
+  }
+  #debug-panel label span.val {
+    color: #fff;
+    min-width: 36px;
+    text-align: right;
+  }
+  #debug-panel input[type=range] {
+    width: 100%;
+    accent-color: #ffb000;
+    margin: 0 0 4px;
+  }
+  #debug-panel .hint {
+    font-size: 9px;
+    color: #ffb00088;
+    text-align: center;
+    margin-top: 8px;
+  }
+  #debug-panel button:hover {
+    background: #ffc832;
+  }
+
   /* ── Slides ── */
   #slides {
     width: 100vw;
@@ -85,6 +147,7 @@
     width: 100%;
     height: auto;
     margin-bottom: 2px;
+    image-rendering: pixelated;
   }
 </style>
 </head>
@@ -125,6 +188,52 @@
 <div id="slides"></div>
 <canvas id="crt"></canvas>
 
+<div id="debug-panel">
+  <h3>CRT Debug</h3>
+
+  <div class="section-label">Pixel Simulation</div>
+  <label>Pixelization <span class="val" id="v-pixel">0.36</span></label>
+  <input type="range" id="s-pixel" min="0" max="1" step="0.01" value="0.36">
+  <label>Subpixel RGB <span class="val" id="v-subpixel">1.00</span></label>
+  <input type="range" id="s-subpixel" min="0" max="1" step="0.01" value="1">
+  <label>Pixel Vignette <span class="val" id="v-pixvig">0.18</span></label>
+  <input type="range" id="s-pixvig" min="0" max="1" step="0.01" value="0.18">
+
+  <div class="section-label">Dithering</div>
+  <label>Ordered Dither <span class="val" id="v-dither">0.00</span></label>
+  <input type="range" id="s-dither" min="0" max="1" step="0.01" value="0">
+  <label>Noise Dither <span class="val" id="v-noisedither">0.56</span></label>
+  <input type="range" id="s-noisedither" min="0" max="1" step="0.01" value="0.56">
+
+  <div class="section-label">Screen</div>
+  <label>Brightness <span class="val" id="v-brightness">1.32</span></label>
+  <input type="range" id="s-brightness" min="0.2" max="4" step="0.01" value="1.32">
+  <label>Vignette <span class="val" id="v-vignette">0.32</span></label>
+  <input type="range" id="s-vignette" min="0" max="1" step="0.01" value="0.32">
+  <label>Scanlines <span class="val" id="v-scanlines">0.44</span></label>
+  <input type="range" id="s-scanlines" min="0" max="0.6" step="0.01" value="0.44">
+  <label>Scan Count <span class="val" id="v-scancount">100</span></label>
+  <input type="range" id="s-scancount" min="100" max="2000" step="10" value="100">
+  <label>Flicker <span class="val" id="v-flicker">0.003</span></label>
+  <input type="range" id="s-flicker" min="0" max="0.05" step="0.001" value="0.003">
+  <label>Curvature <span class="val" id="v-curvature">0.09</span></label>
+  <input type="range" id="s-curvature" min="0" max="0.5" step="0.01" value="0.09">
+
+  <div class="hint">Press ` (backtick) to toggle</div>
+  <button id="save-values" style="
+    margin-top: 10px; width: 100%; padding: 6px;
+    background: #ffb000; color: #0d0a00; border: none;
+    font-family: 'Courier New', monospace; font-size: 11px;
+    font-weight: bold; cursor: pointer; letter-spacing: 1px;
+  ">COPY VALUES</button>
+  <pre id="save-output" style="
+    display: none; margin-top: 6px; padding: 6px;
+    background: #1a1400; border: 1px solid #ffb00044;
+    font-size: 9px; white-space: pre-wrap; word-break: break-all;
+    max-height: 120px; overflow-y: auto;
+  "></pre>
+</div>
+
 <script>
 if (window.pdfjsLib) {
   pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -134,6 +243,7 @@ if (window.pdfjsLib) {
 const output       = document.getElementById('output');
 const slides       = document.getElementById('slides');
 const slideCanvases = [];
+const fullResCanvases = [];  // offscreen full-res copies for pixelation
 
 const lines = [
   { text: '',                                                                    delay:   0 },
@@ -166,6 +276,8 @@ const lines = [
   { text: '         User: guest        ACCESS GRANTED',    cls: 'bright',        delay:  55 },
   { text: '         Scope: read-only   OK',                cls: 'bright',        delay:  45 },
   { text: '[  5.231] All systems nominal.',                cls: 'bright',        delay: 130 },
+  { text: '[  5.340] CRT diagnostics available:',          cls: 'dim',           delay:  55 },
+  { text: '         calibration terminal... [`] to access', cls: 'dim',          delay:  45 },
   { text: '',                                                                    delay:  70 },
   { text: '──────────────────────────────────────────────────────────────────────', cls: 'dim', delay: 0 },
   { text: '  INITIALIZATION COMPLETE — PUBLIC ART SHARING READY',               cls: 'warn', delay:  70 },
@@ -240,23 +352,151 @@ async function initSlides() {
       let   vp    = page.getViewport({ scale: 1 });
       vp          = page.getViewport({ scale: width / vp.width });
 
-      const canvas  = document.createElement('canvas');
-      canvas.width  = vp.width;
-      canvas.height = vp.height;
-      slides.appendChild(canvas);
-      slideCanvases.push(canvas);
+      // Render full-res to an offscreen canvas
+      const offscreen  = document.createElement('canvas');
+      offscreen.width  = vp.width;
+      offscreen.height = vp.height;
+      await page.render({ canvasContext: offscreen.getContext('2d'), viewport: vp }).promise;
+      fullResCanvases.push(offscreen);
 
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      // Display canvas (starts as full-res copy)
+      const display  = document.createElement('canvas');
+      display.width  = vp.width;
+      display.height = vp.height;
+      display.getContext('2d').drawImage(offscreen, 0, 0);
+      slides.appendChild(display);
+      slideCanvases.push(display);
     }
 
     // Unlock and snap back to first slide
     document.documentElement.style.overflow = '';
     slides.firstChild.scrollIntoView({ behavior: 'smooth' });
     appendLine('[  done] ' + total + ' slides rendered.', 'dim', false);
+    updateSlides();  // apply default pixel effects
   } catch (err) {
     document.documentElement.style.overflow = '';
     appendLine('[  error] ' + err.message, 'warn');
   }
+}
+
+// ── Content-level pixel effects (applied directly to slide canvases) ──
+let crtPix = 0.36, crtSub = 1, crtPVig = 0.18;
+let slideUpdateTimer;
+
+function scheduleSlideUpdate() {
+  clearTimeout(slideUpdateTimer);
+  slideUpdateTimer = setTimeout(updateSlides, 30);
+}
+
+function updateSlides() {
+  if (!fullResCanvases.length) return;
+  const pix = crtPix, sub = crtSub, pvig = crtPVig;
+
+  fullResCanvases.forEach((src, i) => {
+    const dst = slideCanvases[i];
+    const fullW = src.width, fullH = src.height;
+
+    // No effects — full-res copy
+    if (pix <= 0 && sub <= 0 && pvig <= 0) {
+      dst.width = fullW; dst.height = fullH;
+      dst.getContext('2d').drawImage(src, 0, 0);
+      return;
+    }
+
+    // Downsample to get pixelated color values
+    const scale = pix > 0 ? Math.max(0.03, 1 - pix * 0.97) : 1;
+    const lowW = Math.max(2, Math.floor(fullW * scale));
+    const lowH = Math.max(2, Math.floor(fullH * scale));
+
+    // If only pixelation (no subpixel/vignette), use fast CSS upscale
+    if (sub <= 0 && pvig <= 0) {
+      dst.width = lowW; dst.height = lowH;
+      const ctx = dst.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(src, 0, 0, lowW, lowH);
+      return;
+    }
+
+    // Get low-res pixel data
+    const tmp = document.createElement('canvas');
+    tmp.width = lowW; tmp.height = lowH;
+    tmp.getContext('2d').drawImage(src, 0, 0, lowW, lowH);
+    const lowData = tmp.getContext('2d').getImageData(0, 0, lowW, lowH).data;
+
+    // Render to full-res with per-cell subpixel + vignette
+    dst.width = fullW; dst.height = fullH;
+    const ctx = dst.getContext('2d');
+    const imgData = ctx.createImageData(fullW, fullH);
+    const out = imgData.data;
+
+    const cellW = fullW / lowW;
+    const cellH = fullH / lowH;
+
+    for (let py = 0; py < lowH; py++) {
+      const y0 = Math.floor(py * cellH);
+      const y1 = Math.floor((py + 1) * cellH);
+
+      for (let px = 0; px < lowW; px++) {
+        const si = (py * lowW + px) * 4;
+        const r = lowData[si], g = lowData[si+1], b = lowData[si+2], a = lowData[si+3];
+
+        const x0 = Math.floor(px * cellW);
+        const x1 = Math.floor((px + 1) * cellW);
+        const cw = x1 - x0, ch = y1 - y0;
+
+        for (let y = y0; y < y1; y++) {
+          // Pixel vignette Y component (precompute for row)
+          const cy = ch > 1 ? (y - y0) / (ch - 1) * 2 - 1 : 0;
+          const cyAbs = Math.abs(cy);
+
+          for (let x = x0; x < x1; x++) {
+            const di = (y * fullW + x) * 4;
+            let sr = r, sg = g, sb = b;
+
+            // Subpixel RGB: divide cell into 3 vertical strips
+            if (sub > 0 && cw >= 3) {
+              const lx = (x - x0) / cw;  // 0..1 within cell
+              const dim = sub * 0.88;
+              if (lx < 0.333) {
+                // Red strip: dim G and B
+                sg *= (1 - dim);
+                sb *= (1 - dim);
+              } else if (lx < 0.667) {
+                // Green strip: dim R and B
+                sr *= (1 - dim);
+                sb *= (1 - dim);
+              } else {
+                // Blue strip: dim R and G
+                sr *= (1 - dim);
+                sg *= (1 - dim);
+              }
+              // Darken gaps between strips
+              const edge = lx % 0.333;
+              const gapSize = 0.06 * sub;
+              if (edge < gapSize || edge > 0.333 - gapSize) {
+                const gapDim = 1 - sub * 0.5;
+                sr *= gapDim; sg *= gapDim; sb *= gapDim;
+              }
+            }
+
+            // Pixel vignette: darken edges of each cell
+            let vf = 1;
+            if (pvig > 0) {
+              const cx = cw > 1 ? (x - x0) / (cw - 1) * 2 - 1 : 0;
+              const d = Math.max(Math.abs(cx), cyAbs);
+              vf = 1 - d * d * pvig * 0.75;
+            }
+
+            out[di]   = Math.round(Math.max(0, sr * vf));
+            out[di+1] = Math.round(Math.max(0, sg * vf));
+            out[di+2] = Math.round(Math.max(0, sb * vf));
+            out[di+3] = a;
+          }
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  });
 }
 </script>
 
@@ -278,6 +518,9 @@ async function initSlides() {
   // Transparent CRT-glass overlay: scanlines + vignette + flicker
   // Curvature applied via UV distortion — content outside the curved
   // screen boundary is filled solid black to simulate a CRT bezel.
+  // Overlay-only effects: scanlines, vignette, flicker, curvature, dithering
+  // Pixel-level effects (subpixel, pixel vignette) are applied directly
+  // to the slide canvases so they align perfectly with content pixels.
   const FS = `#version 300 es
     precision mediump float;
     in vec2 vUv;
@@ -289,8 +532,28 @@ async function initSlides() {
     uniform float uVignette;
     uniform float uFlicker;
     uniform float uCurvature;
+    uniform float uBrightness;
+    uniform float uDither;
+    uniform float uNoiseDither;
+    uniform vec2  uResolution;
 
     const float PI = 3.14159265;
+
+    float bayer4(vec2 p) {
+      ivec2 ip = ivec2(mod(p, 4.0));
+      int idx = ip.x + ip.y * 4;
+      float m[16] = float[16](
+         0.0/16.0,  8.0/16.0,  2.0/16.0, 10.0/16.0,
+        12.0/16.0,  4.0/16.0, 14.0/16.0,  6.0/16.0,
+         3.0/16.0, 11.0/16.0,  1.0/16.0,  9.0/16.0,
+        15.0/16.0,  7.0/16.0, 13.0/16.0,  5.0/16.0
+      );
+      return m[idx];
+    }
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
 
     vec2 curveUV(vec2 uv) {
       vec2 c = uv * 2.0 - 1.0;
@@ -301,24 +564,40 @@ async function initSlides() {
     void main() {
       vec2 curved = curveUV(vUv);
 
-      // Outside the curved screen → solid black bezel
       if (curved.x < 0.0 || curved.x > 1.0 || curved.y < 0.0 || curved.y > 1.0) {
         fragColor = vec4(0.0, 0.0, 0.0, 1.0);
         return;
       }
 
+      vec2 pixelCoord = curved * uResolution;
+
       // Scanlines
       float scan    = abs(sin(curved.y * uScanCount * PI));
       float scanDark = (1.0 - scan) * uScanlines;
 
-      // Vignette (Chebyshev distance squared — same trick as source repo)
+      // Screen vignette
       vec2 vc    = curved * 2.0 - 1.0;
       float vign = dot(vc, vc) * uVignette;
 
       // Flicker
       float flicker = sin(uTime * 110.0) * uFlicker;
 
-      float alpha = clamp(scanDark + vign + flicker, 0.0, 0.9);
+      // Ordered dithering
+      float dith = 0.0;
+      if (uDither > 0.0) {
+        dith = (bayer4(pixelCoord) - 0.5) * uDither * 0.4;
+      }
+
+      // Noise dithering
+      float noiseDith = 0.0;
+      if (uNoiseDither > 0.0) {
+        noiseDith = (hash(pixelCoord + fract(uTime)) - 0.5) * uNoiseDither * 0.4;
+      }
+
+      float base = scanDark + vign + flicker + dith + noiseDith;
+      // Brightness: <1 darkens (adds alpha), >1 brightens (subtracts alpha)
+      base += (1.0 - uBrightness) * 0.5;
+      float alpha = clamp(base, 0.0, 0.92);
       fragColor = vec4(0.0, 0.0, 0.0, alpha);
     }
   `;
@@ -334,18 +613,25 @@ async function initSlides() {
   gl.useProgram(prog);
 
   const U = name => gl.getUniformLocation(prog, name);
-  const uTime      = U('uTime');
-  const uScanlines = U('uScanlines');
-  const uScanCount = U('uScanCount');
-  const uVignette  = U('uVignette');
-  const uFlicker   = U('uFlicker');
-  const uCurvature = U('uCurvature');
+  const uTime          = U('uTime');
+  const uScanlines     = U('uScanlines');
+  const uScanCount     = U('uScanCount');
+  const uVignette      = U('uVignette');
+  const uFlicker       = U('uFlicker');
+  const uCurvature     = U('uCurvature');
+  const uBrightness    = U('uBrightness');
+  const uDither        = U('uDither');
+  const uNoiseDither   = U('uNoiseDither');
+  const uResolution    = U('uResolution');
 
-  gl.uniform1f(uScanlines, 0.18);
-  gl.uniform1f(uScanCount, 600.0);
-  gl.uniform1f(uVignette,  0.38);
-  gl.uniform1f(uFlicker,   0.008);
-  gl.uniform1f(uCurvature, 0.12);
+  gl.uniform1f(uScanlines,    0.44);
+  gl.uniform1f(uScanCount,    100.0);
+  gl.uniform1f(uVignette,     0.32);
+  gl.uniform1f(uFlicker,      0.003);
+  gl.uniform1f(uCurvature,    0.09);
+  gl.uniform1f(uBrightness,   1.32);
+  gl.uniform1f(uDither,       0.0);
+  gl.uniform1f(uNoiseDither,  0.56);
 
   gl.bindVertexArray(gl.createVertexArray());
   gl.enable(gl.BLEND);
@@ -356,6 +642,7 @@ async function initSlides() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width  = Math.floor(window.innerWidth  * dpr);
     canvas.height = Math.floor(window.innerHeight * dpr);
+    gl.uniform2f(uResolution, canvas.width, canvas.height);
   }
 
   function render(ts) {
@@ -369,6 +656,74 @@ async function initSlides() {
   resize();
   window.addEventListener('resize', resize, { passive: true });
   requestAnimationFrame(render);
+
+  // ── Debug panel wiring ──
+  const panel = document.getElementById('debug-panel');
+
+  document.addEventListener('keydown', e => {
+    if (e.key === '`') panel.classList.toggle('visible');
+  });
+
+  function wire(sliderId, uniform, fmt) {
+    const slider = document.getElementById(sliderId);
+    const val    = document.getElementById(sliderId.replace('s-', 'v-'));
+    slider.addEventListener('input', () => {
+      const v = parseFloat(slider.value);
+      gl.uniform1f(uniform, v);
+      val.textContent = fmt ? fmt(v) : v.toFixed(2);
+    });
+  }
+
+  // Content-level sliders → update slide canvases directly
+  function wireContent(sliderId, prop, fmt) {
+    const slider = document.getElementById(sliderId);
+    const val    = document.getElementById(sliderId.replace('s-', 'v-'));
+    slider.addEventListener('input', () => {
+      const v = parseFloat(slider.value);
+      val.textContent = fmt ? fmt(v) : v.toFixed(2);
+      if (prop === 'pix')  crtPix  = v;
+      if (prop === 'sub')  crtSub  = v;
+      if (prop === 'pvig') crtPVig = v;
+      scheduleSlideUpdate();
+    });
+  }
+  wireContent('s-pixel',    'pix',  v => v === 0 ? 'OFF' : v.toFixed(2));
+  wireContent('s-subpixel', 'sub');
+  wireContent('s-pixvig',   'pvig');
+
+  // Shader-level sliders → update GL uniforms
+  wire('s-brightness',  uBrightness);
+  wire('s-vignette',    uVignette);
+  wire('s-dither',      uDither);
+  wire('s-noisedither', uNoiseDither);
+  wire('s-scanlines',   uScanlines);
+  wire('s-scancount',   uScanCount,    v => v.toFixed(0));
+  wire('s-flicker',     uFlicker,      v => v.toFixed(3));
+  wire('s-curvature',   uCurvature);
+
+  // ── Save / copy values ──
+  document.getElementById('save-values').addEventListener('click', () => {
+    const sliders = [
+      's-pixel', 's-subpixel', 's-pixvig',
+      's-dither', 's-noisedither',
+      's-brightness', 's-vignette', 's-scanlines', 's-scancount', 's-flicker', 's-curvature'
+    ];
+    const vals = {};
+    sliders.forEach(id => {
+      const key = id.replace('s-', '');
+      vals[key] = parseFloat(document.getElementById(id).value);
+    });
+    const json = JSON.stringify(vals, null, 2);
+    const out = document.getElementById('save-output');
+    out.style.display = 'block';
+    out.textContent = json;
+    navigator.clipboard.writeText(json).then(() => {
+      document.getElementById('save-values').textContent = 'COPIED!';
+      setTimeout(() => {
+        document.getElementById('save-values').textContent = 'COPY VALUES';
+      }, 1500);
+    }).catch(() => {});
+  });
 })();
 </script>
 </body>
