@@ -352,6 +352,22 @@ async function initSlides() {
       let   vp    = page.getViewport({ scale: 1 });
       vp          = page.getViewport({ scale: width / vp.width });
 
+      // Slide 3: replace with YouTube embed
+      if (n === 3) {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = `width:${vp.width}px;height:${vp.height}px;margin-bottom:2px;display:block;`;
+        const iframe = document.createElement('iframe');
+        iframe.src = 'https://www.youtube.com/embed/lxkmnrZVeyk';
+        iframe.style.cssText = 'width:100%;height:100%;border:none;';
+        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+        iframe.setAttribute('allowfullscreen', '');
+        wrapper.appendChild(iframe);
+        slides.appendChild(wrapper);
+        slideCanvases.push(wrapper);
+        fullResCanvases.push(null);
+        continue;
+      }
+
       // Render full-res to an offscreen canvas
       const offscreen  = document.createElement('canvas');
       offscreen.width  = vp.width;
@@ -393,6 +409,7 @@ function updateSlides() {
   const pix = crtPix, sub = crtSub, pvig = crtPVig;
 
   fullResCanvases.forEach((src, i) => {
+    if (!src) return; // skip non-canvas slides (e.g. YouTube embed)
     const dst = slideCanvases[i];
     const fullW = src.width, fullH = src.height;
 
